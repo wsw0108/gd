@@ -16,18 +16,18 @@ import (
 )
 
 var (
-	owner  string
-	repo   string
-	branch string
-	path   string
-	dir    string
+	owner    string
+	repo     string
+	branch   string
+	repoPath string
+	dir      string
 )
 
 func init() {
 	flag.StringVar(&owner, "owner", "", "repo owner")
 	flag.StringVar(&repo, "repo", "", "repo name")
 	flag.StringVar(&branch, "branch", "master", "repo branch")
-	flag.StringVar(&path, "path", "", "repo path(directory/file)")
+	flag.StringVar(&repoPath, "path", "", "repo path(directory/file)")
 	flag.StringVar(&dir, "dir", "", "local directory")
 	flag.Parse()
 }
@@ -92,6 +92,23 @@ func main() {
 		os.Exit(-1)
 	}
 
+	var ftype string
+	var fpath string
+	if repoPath != "" {
+		for _, entry := range tree.Entries {
+			epath := entry.GetPath()
+			if epath == repoPath {
+				ftype = entry.GetType()
+				fpath = epath
+				break
+			}
+		}
+		if fpath == "" {
+			fmt.Printf("can not find %s in repo\n", repoPath)
+			os.Exit(-1)
+		}
+	}
+
 	var files []file
 	for _, entry := range tree.Entries {
 		etype := entry.GetType()
@@ -99,7 +116,20 @@ func main() {
 			continue
 		}
 		epath := entry.GetPath()
-		if path == "" || (path != "" && strings.HasPrefix(epath, path)) {
+		if fpath == "" {
+			files = append(files, file{
+				path: epath,
+				url:  rawURL(owner, repo, branch, epath),
+			})
+			continue
+		}
+		var prefix string
+		if ftype == "tree" {
+			prefix = fpath + "/"
+		} else {
+			prefix = fpath
+		}
+		if strings.HasPrefix(epath, prefix) {
 			files = append(files, file{
 				path: epath,
 				url:  rawURL(owner, repo, branch, epath),
